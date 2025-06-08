@@ -1,0 +1,158 @@
+#+TITLE: TLA+ Development Workflow with AI Assistance
+#+PROPERTY: header-args:sh :results verbatim :exports both
+
+* Project Setup
+
+** Initialize project structure
+#+begin_src sh :dir .
+mkdir -p specs models tests docs
+touch specs/.gitkeep models/.gitkeep tests/.gitkeep docs/.gitkeep
+#+end_src
+
+** Create Makefile for automation
+#+begin_src makefile :tangle Makefile :mkdirp t
+.PHONY: check model test clean
+
+SPECS := $(wildcard specs/*.tla)
+MODELS := $(wildcard specs/*.cfg)
+
+check:
+	@echo "Syntax checking all specs..."
+	@for spec in $(SPECS); do \
+		echo "Checking $$spec..."; \
+		java -jar tla2tools.jar -noGenerateSpecTEAnnotations $$spec; \
+	done
+
+model:
+	@echo "Model checking all specs..."
+	@for cfg in $(MODELS); do \
+		spec=$${cfg%.cfg}.tla; \
+		echo "Checking $$spec with $$cfg..."; \
+		java -jar tla2tools.jar -config $$cfg $$spec; \
+	done
+
+clean:
+	rm -rf states/ *.out
+
+help:
+	@echo "Available commands:"
+	@echo "  make check  - Syntax check all TLA+ specs"
+	@echo "  make model  - Model check all specs"
+	@echo "  make clean  - Clean generated files"
+#+end_src
+
+* AI Prompts Library
+
+** Fix syntax errors
+#+begin_example
+Fix the syntax errors in this TLA+ spec. Use proper TLA+ syntax:
+- Use == for definitions, not =
+- Use # for not-equal, not !=
+- Use \in for set membership
+- Ensure proper module structure
+#+end_example
+
+** Add UNCHANGED clauses
+#+begin_example
+Add UNCHANGED <<>> clauses to each action for variables not modified.
+Only include variables that exist in the vars definition.
+#+end_example
+
+** Analyze error trace
+#+begin_example
+Analyze this TLA+ error trace and explain:
+1. What sequence of events led to the violation
+2. Why the invariant/property was violated  
+3. Potential fixes to prevent this issue
+#+end_example
+
+** Convert Python to TLA+
+#+begin_example
+Convert this Python code to a TLA+ specification:
+- Model sequential operations as pc states
+- Abstract away implementation details like sleep()
+- Focus on the concurrent behavior and shared state
+- Add appropriate invariants and temporal properties
+#+end_example
+
+** Generate test scenarios
+#+begin_example
+Based on this TLA+ spec, generate Python test cases that:
+- Exercise the main paths through the specification
+- Test boundary conditions (empty queue, full queue, etc.)
+- Verify the invariants hold in the implementation
+#+end_example
+
+* Development Workflow
+
+** 1. Specification Development
+1. Write initial specification in TLA+
+2. Use AI to help with boilerplate and syntax fixes
+3. Define invariants and properties
+4. Create model configuration file
+
+** 2. Model Checking
+1. Run the TLA+ model checker
+2. If errors are found, analyze the trace with AI assistance
+3. Refine the specification and fix issues
+
+** 3. Implementation
+1. Create a Python implementation based on the TLA+ spec
+2. Use AI to help translate formal definitions to code
+3. Add safety mechanisms identified in the model checking
+
+** 4. Testing
+1. Create test cases that exercise edge cases found by model checking
+2. Verify that the implementation satisfies the invariants
+3. Use AI to generate additional test scenarios
+
+* Tips for Using AI with TLA+
+
+Based on our experience:
+
+1. **Syntax Fixing**: Let AI handle syntax errors - it's much better than SANY's cryptic messages
+2. **Error Traces**: Copy error traces and ask for high-level explanations
+3. **Boilerplate**: Use AI for UNCHANGED clauses, variable collections, and routine updates
+4. **Properties**: Be very precise when asking AI to formalize properties
+5. **Limitations**: Don't rely on AI for fixing logical bugs or generating non-trivial properties
+
+The key is to use AI as a "force multiplier" for the tedious parts while keeping human insight for the design and abstraction decisions.
+
+* Example Session
+
+Here's a typical AI-assisted TLA+ development session:
+
+#+begin_example
+Step 1: Write initial specification with AI help
+
+Prompt: "Help me formalize a distributed key-value store with these operations:
+- Put(key, value)
+- Get(key) returns value
+- Delete(key)
+The store should maintain consistency across replicas."
+
+Step 2: Ask for help with boilerplate
+
+Prompt: "Add UNCHANGED clauses to these actions and define the TypeOK invariant
+for all the variables in this spec."
+
+Step 3: Have AI analyze an error trace
+
+Prompt: "Analyze this error trace where linearizability is violated.
+What sequence of events led to this issue?"
+
+Step 4: Generate implementation code
+
+Prompt: "Convert this TLA+ specification to Python code with proper
+thread synchronization."
+#+end_example
+
+* Conclusion
+
+Effective AI-assisted TLA+ development:
+
+1. Leverage AI for the tedious, syntax-focused work
+2. Keep humans in charge of abstraction and problem definition
+3. Use AI to bridge the gap between formal specification and implementation
+4. Let AI explain error traces to gain deeper understanding
+5. Develop a consistent workflow integrating AI assistance
