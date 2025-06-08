@@ -80,6 +80,24 @@ To add a new example:
 3. Implement a Python example in the `examples/` directory
 4. Add tests in the `tests/` directory
 5. Update documentation to describe the example
+6. Test your changes:
+   ```bash
+   # On FreeBSD
+   gmake check  # Syntax check TLA+ specs
+   gmake model  # Run model checking
+   gmake test   # Run Python examples
+   
+   # On Linux/macOS
+   make check model test
+   ```
+
+## System Compatibility
+
+This project is tested on:
+- FreeBSD 14.2-RELEASE (amd64) with OpenJDK 21.0.6, Python 3.11.11
+- GitHub Codespaces
+- Replit
+- Linux/macOS with Java 8+ and Python 3.8+
 
 ## License
 

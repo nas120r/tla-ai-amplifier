@@ -38,26 +38,53 @@ Tools for interpreting TLA+ error traces:
 
 ### Prerequisites
 
-- Java Runtime Environment (for TLA+ Toolbox)
-- TLA+ Tools (tla2tools.jar)
-- Python 3.6+
-- Emacs with Org mode (for literate programming examples)
+- Java Runtime Environment (JRE 8 or higher)
+- TLA+ Tools v1.8.0 ([Download](https://github.com/tlaplus/tlaplus/releases/tag/v1.8.0))
+- Python 3.8+
+- GNU Make (gmake on FreeBSD)
+- Emacs with Org mode (optional, for literate programming examples)
+
+### System Compatibility
+
+#### Tested on:
+- **FreeBSD 14.2-RELEASE** (amd64)
+  - OpenJDK 21.0.6
+  - Python 3.11.11
+  - GNU Make 4.4.1
+  - GNU Emacs 30.1
+
+#### Alternative Platforms:
+- **Cloud IDEs**: Works on GitHub Codespaces, Gitpod, and similar cloud development environments
+- **Replit**: Fully compatible with Replit's Python environment
+- **Linux/macOS**: Standard Unix-like systems with Java 8+ and Python 3.8+
+- **Windows**: Use WSL2 or Git Bash for best compatibility
 
 ### Installation
 
 1. Clone this repository:
-   ```
-   git clone https://github.com/yourusername/tla-ai-amplifier.git
+   ```bash
+   git clone https://github.com/aygp-dr/tla-ai-amplifier.git
    cd tla-ai-amplifier
    ```
 
-2. Download TLA+ tools if needed:
-   ```
-   curl -O https://github.com/tlaplus/tlaplus/releases/download/v1.7.0/tla2tools.jar
+2. Download TLA+ tools (automated):
+   ```bash
+   # On FreeBSD, use gmake instead of make
+   gmake tla2tools.jar
+   
+   # Or manually download:
+   wget https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
    ```
 
 3. Install Python dependencies:
-   ```
+   ```bash
+   # Using pip
+   gmake install
+   
+   # Or if you have uv installed:
+   uv pip install -e .
+   
+   # Or traditional pip:
    pip install -r requirements.txt
    ```
 
@@ -66,27 +93,31 @@ Tools for interpreting TLA+ error traces:
 ### Running TLA+ Models
 
 Check TLA+ specifications:
-```
+```bash
+# On FreeBSD:
+gmake check
+
+# On Linux/macOS:
 make check
 ```
 
 Run model checking on all specifications:
-```
-make model
+```bash
+gmake model
 ```
 
 ### Running Python Examples
 
 Execute Python implementations:
-```
-make test
+```bash
+gmake test
 ```
 
 ### Generate Diagrams
 
 Create visual diagrams from Org files:
-```
-make diagrams
+```bash
+gmake diagrams
 ```
 
 ## Directory Structure

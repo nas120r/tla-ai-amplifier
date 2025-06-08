@@ -4,6 +4,9 @@
 *.trace
 *.log
 *.out
+tla2tools.jar
+*.bin
+*_TTrace_*.tla
 
 # Python
 __pycache__/
@@ -44,3 +47,7 @@ Thumbs.db
 # Generated files
 *.png
 *.pdf
+
+# Environment files
+.env
+uv.lock

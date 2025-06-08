@@ -50,6 +50,9 @@ TypeOK ==
     /\ consumed \in [Consumers -> Seq(1..MaxValue)]
     /\ nextValue \in 1..(MaxValue + 1)
 
+\* Helper operator to get the range of a sequence
+Range(seq) == {seq[i] : i \in 1..Len(seq)}
+
 \* "No value is lost" - AI helped formalize this
 NoValueLost ==
     LET AllProduced == UNION {Range(produced[p]) : p \in Producers}
@@ -57,11 +60,12 @@ NoValueLost ==
         InQueue == Range(queue)
     IN AllProduced = AllConsumed \cup InQueue
 
+\* Helper operator to check if a sequence is ordered
+IsOrdered(seq) ==
+    \A i \in 1..(Len(seq)-1) : seq[i] < seq[i+1]
+
 \* "Values are consumed in order" - AI helped formalize this
 ConsumedInOrder ==
     \A c \in Consumers : IsOrdered(consumed[c])
-    
-IsOrdered(seq) ==
-    \A i \in 1..(Len(seq)-1) : seq[i] < seq[i+1]
 
 =======================================================================

@@ -1,11 +1,10 @@
 # Core dependencies
-tla-pp>=0.1.0  # TLA+ parser and pretty printer
 pytest>=7.0.0  # Testing framework
 
-# For examples
-matplotlib>=3.5.0  # For visualizations
-networkx>=2.6.0   # For graph visualizations
+# For examples (all examples use only stdlib currently)
+# matplotlib>=3.5.0  # For visualizations
+# networkx>=2.6.0   # For graph visualizations
 
 # For documentation
-mkdocs>=1.3.0
-mkdocs-material>=8.2.0
+# mkdocs>=1.3.0
+# mkdocs-material>=8.2.0
