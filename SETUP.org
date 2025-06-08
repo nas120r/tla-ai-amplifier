@@ -1,0 +1,490 @@
+#+TITLE: TLA+ Examples with AI Assistance
+#+PROPERTY: header-args:python :results output :exports both
+#+PROPERTY: header-args:tla+ :results verbatim :exports both
+
+* Counter Example: From Python to TLA+
+
+** System Design with Mermaid
+
+#+begin_src mermaid :file counter-system.png :mkdirp t
+stateDiagram-v2
+    [*] --> Get: Start
+    Get --> Inc: Read value
+    Inc --> Done: Increment
+    Done --> [*]: Complete
+    
+    note right of Get
+        pc = "Get"
+        Read current counter value
+    end note
+    
+    note right of Inc
+        pc = "Inc"
+        Increment the value
+    end note
+#+end_src
+
+** Python Implementation
+
+#+begin_src python :tangle ./examples/counter.py :mkdirp t
+import threading
+import time
+import random
+
+class Counter:
+    def __init__(self):
+        self.value = 0
+        self.lock = threading.Lock()
+    
+    def increment_unsafe(self):
+        """Non-atomic increment (subject to race conditions)"""
+        temp = self.value  # Get
+        time.sleep(random.uniform(0.001, 0.01))  # Simulate processing
+        self.value = temp + 1  # Inc
+        
+    def increment_safe(self):
+        """Thread-safe increment"""
+        with self.lock:
+            temp = self.value
+            self.value = temp + 1
+
+# Example of race condition
+counter = Counter()
+threads = []
+
+print("Testing unsafe increment (race condition possible):")
+for i in range(5):
+    t = threading.Thread(target=counter.increment_unsafe)
+    threads.append(t)
+    t.start()
+
+for t in threads:
+    t.join()
+
+print(f"Final counter value: {counter.value} (expected: 5)")
+#+end_src
+
+** TLA+ Specification
+
+#+begin_src tla+ :tangle ./specs/Counter.tla :mkdirp t
+---------------------------- MODULE Counter ----------------------------
+EXTENDS Integers, TLC
+
+CONSTANTS NumProcesses
+
+VARIABLES 
+    counter,      \* The shared counter
+    pc,           \* Program counter for each process
+    local         \* Local variable for each process
+
+vars == <<counter, pc, local>>
+
+Init ==
+    /\ counter = 0
+    /\ pc = [p \in 1..NumProcesses |-> "Get"]
+    /\ local = [p \in 1..NumProcesses |-> 0]
+
+Get(p) ==
+    /\ pc[p] = "Get"
+    /\ local' = [local EXCEPT ![p] = counter]
+    /\ pc' = [pc EXCEPT ![p] = "Inc"]
+    /\ UNCHANGED counter
+
+Inc(p) ==
+    /\ pc[p] = "Inc"
+    /\ counter' = local[p] + 1
+    /\ pc' = [pc EXCEPT ![p] = "Done"]
+    /\ UNCHANGED local
+
+Next == \E p \in 1..NumProcesses : Get(p) \/ Inc(p)
+
+Spec == Init /\ [][Next]_vars
+
+\* Properties
+TypeOK ==
+    /\ counter \in Nat
+    /\ pc \in [1..NumProcesses -> {"Get", "Inc", "Done"}]
+    /\ local \in [1..NumProcesses -> Nat]
+
+\* This property will be violated due to race conditions
+FinalCounterCorrect ==
+    (\A p \in 1..NumProcesses : pc[p] = "Done") => counter = NumProcesses
+
+\* Temporal property: eventually all processes complete
+EventuallyAllDone ==
+    <>(\A p \in 1..NumProcesses : pc[p] = "Done")
+
+=======================================================================
+#+end_src
+
+** Model Configuration
+
+#+begin_src conf :tangle ./specs/Counter.cfg :mkdirp t
+SPECIFICATION Spec
+CONSTANTS
+    NumProcesses = 3
+    
+INVARIANTS
+    TypeOK
+    FinalCounterCorrect
+    
+PROPERTIES
+    EventuallyAllDone
+#+end_src
+
+* Producer-Consumer Queue Example
+
+** System Architecture
+
+#+begin_src mermaid :file producer-consumer.png :mkdirp t
+graph LR
+    subgraph Producers
+        P1[Producer 1]
+        P2[Producer 2]
+    end
+    
+    subgraph Queue
+        Q[Bounded Queue<br/>Capacity: 3]
+    end
+    
+    subgraph Consumers
+        C1[Consumer 1]
+        C2[Consumer 2]
+    end
+    
+    P1 -->|Put| Q
+    P2 -->|Put| Q
+    Q -->|Get| C1
+    Q -->|Get| C2
+    
+    style Q fill:#f9f,stroke:#333,stroke-width:2px
+#+end_src
+
+** TLA+ Specification with AI-Assisted UNCHANGED
+
+#+begin_src tla+ :tangle ./specs/ProducerConsumer.tla :mkdirp t
+----------------------- MODULE ProducerConsumer -----------------------
+EXTENDS Integers, Sequences, TLC
+
+CONSTANTS 
+    Producers,      \* Set of producers
+    Consumers,      \* Set of consumers  
+    QueueCapacity,  \* Maximum queue size
+    MaxValue        \* Maximum value to produce
+
+VARIABLES
+    queue,          \* The shared queue
+    produced,       \* Values produced by each producer
+    consumed,       \* Values consumed by each consumer
+    nextValue       \* Next value to produce
+
+vars == <<queue, produced, consumed, nextValue>>
+
+Init ==
+    /\ queue = <<>>
+    /\ produced = [p \in Producers |-> <<>>]
+    /\ consumed = [c \in Consumers |-> <<>>]
+    /\ nextValue = 1
+
+Produce(p) ==
+    /\ Len(queue) < QueueCapacity
+    /\ nextValue <= MaxValue
+    /\ queue' = Append(queue, nextValue)
+    /\ produced' = [produced EXCEPT ![p] = Append(@, nextValue)]
+    /\ nextValue' = nextValue + 1
+    /\ UNCHANGED consumed  \* AI helps maintain this!
+
+Consume(c) ==
+    /\ Len(queue) > 0
+    /\ LET value == Head(queue) IN
+        /\ queue' = Tail(queue)
+        /\ consumed' = [consumed EXCEPT ![c] = Append(@, value)]
+    /\ UNCHANGED <<produced, nextValue>>  \* AI helps maintain this!
+
+Next ==
+    \/ \E p \in Producers : Produce(p)
+    \/ \E c \in Consumers : Consume(c)
+
+Spec == Init /\ [][Next]_vars
+
+\* Properties from informal description (AI can help translate these)
+TypeOK ==
+    /\ queue \in Seq(1..MaxValue)
+    /\ Len(queue) <= QueueCapacity
+    /\ produced \in [Producers -> Seq(1..MaxValue)]
+    /\ consumed \in [Consumers -> Seq(1..MaxValue)]
+    /\ nextValue \in 1..(MaxValue + 1)
+
+\* "No value is lost" - AI helped formalize this
+NoValueLost ==
+    LET AllProduced == UNION {Range(produced[p]) : p \in Producers}
+        AllConsumed == UNION {Range(consumed[c]) : c \in Consumers}
+        InQueue == Range(queue)
+    IN AllProduced = AllConsumed \cup InQueue
+
+\* "Values are consumed in order" - AI helped formalize this
+ConsumedInOrder ==
+    \A c \in Consumers : IsOrdered(consumed[c])
+    
+IsOrdered(seq) ==
+    \A i \in 1..(Len(seq)-1) : seq[i] < seq[i+1]
+
+=======================================================================
+#+end_src
+
+** Python Simulator (AI-Generated from TLA+)
+
+#+begin_src python :tangle ./examples/producer_consumer_sim.py :mkdirp t
+import threading
+import queue
+import time
+import random
+from collections import defaultdict
+
+class ProducerConsumerSimulator:
+    """AI-generated simulator from TLA+ spec"""
+    
+    def __init__(self, num_producers, num_consumers, queue_capacity, max_value):
+        self.queue = queue.Queue(maxsize=queue_capacity)
+        self.produced = defaultdict(list)
+        self.consumed = defaultdict(list)
+        self.next_value = 1
+        self.max_value = max_value
+        self.value_lock = threading.Lock()
+        
+    def produce(self, producer_id):
+        while True:
+            with self.value_lock:
+                if self.next_value > self.max_value:
+                    break
+                value = self.next_value
+                self.next_value += 1
+            
+            try:
+                self.queue.put(value, timeout=1)
+                self.produced[producer_id].append(value)
+                print(f"Producer {producer_id} produced: {value}")
+                time.sleep(random.uniform(0.1, 0.3))
+            except queue.Full:
+                # Backoff and retry
+                time.sleep(0.1)
+                
+    def consume(self, consumer_id):
+        while True:
+            try:
+                value = self.queue.get(timeout=2)
+                self.consumed[consumer_id].append(value)
+                print(f"Consumer {consumer_id} consumed: {value}")
+                time.sleep(random.uniform(0.2, 0.4))
+            except queue.Empty:
+                # Check if we're done
+                with self.value_lock:
+                    if self.next_value > self.max_value and self.queue.empty():
+                        break
+
+# Run simulation
+sim = ProducerConsumerSimulator(
+    num_producers=2,
+    num_consumers=2, 
+    queue_capacity=3,
+    max_value=10
+)
+
+producers = []
+consumers = []
+
+for i in range(2):
+    p = threading.Thread(target=sim.produce, args=(f"P{i+1}",))
+    producers.append(p)
+    p.start()
+
+for i in range(2):
+    c = threading.Thread(target=sim.consume, args=(f"C{i+1}",))
+    consumers.append(c)
+    c.start()
+
+for p in producers:
+    p.join()
+for c in consumers:
+    c.join()
+
+print("\nVerifying properties:")
+all_produced = set()
+for values in sim.produced.values():
+    all_produced.update(values)
+    
+all_consumed = set()
+for values in sim.consumed.values():
+    all_consumed.update(values)
+    
+print(f"Values produced: {sorted(all_produced)}")
+print(f"Values consumed: {sorted(all_consumed)}")
+print(f"No value lost: {all_produced == all_consumed}")
+#+end_src
+
+* AI-Assisted Error Trace Analysis Example
+
+** Sample Error Trace Interpretation
+
+#+begin_src python :tangle ./examples/trace_analyzer.py :mkdirp t
+"""
+Example of how AI can help interpret TLA+ error traces
+This simulates what Claude does when analyzing traces
+"""
+
+class TraceStep:
+    def __init__(self, state_num, action, variables):
+        self.state_num = state_num
+        self.action = action
+        self.variables = variables
+
+def analyze_counter_trace():
+    """
+    Simulated error trace from Counter spec showing race condition
+    """
+    trace = [
+        TraceStep(1, "Init", {
+            "counter": 0,
+            "pc": {"1": "Get", "2": "Get"},
+            "local": {"1": 0, "2": 0}
+        }),
+        TraceStep(2, "Get(1)", {
+            "counter": 0,
+            "pc": {"1": "Inc", "2": "Get"},
+            "local": {"1": 0, "2": 0}
+        }),
+        TraceStep(3, "Get(2)", {
+            "counter": 0,
+            "pc": {"1": "Inc", "2": "Inc"},
+            "local": {"1": 0, "2": 0}
+        }),
+        TraceStep(4, "Inc(1)", {
+            "counter": 1,
+            "pc": {"1": "Done", "2": "Inc"},
+            "local": {"1": 0, "2": 0}
+        }),
+        TraceStep(5, "Inc(2)", {
+            "counter": 1,  # Should be 2!
+            "pc": {"1": "Done", "2": "Done"},
+            "local": {"1": 0, "2": 0}
+        })
+    ]
+    
+    print("=== AI-Style Error Trace Analysis ===\n")
+    print("SUMMARY: Race condition detected in counter increment\n")
+    print("EXPLANATION:")
+    print("1. Both processes read counter value 0 (steps 2-3)")
+    print("2. Process 1 increments: 0 + 1 = 1 (step 4)")
+    print("3. Process 2 also increments from its stale local value: 0 + 1 = 1 (step 5)")
+    print("4. Final counter is 1 instead of expected 2\n")
+    print("ROOT CAUSE: Non-atomic read-modify-write operation allows interleaving\n")
+    print("FIX: Add synchronization or use atomic operations")
+    
+    return trace
+
+# Run the analysis
+analyze_counter_trace()
+#+end_src
+
+* Workflow Integration Example
+
+** Complete org-mode workflow for TLA+ development
+
+#+begin_src org :tangle ./workflow/tla-workflow.org :mkdirp t
+#+TITLE: TLA+ Development Workflow with AI Assistance
+#+PROPERTY: header-args:sh :results verbatim :exports both
+
+* Project Setup
+
+** Initialize project structure
+#+begin_src sh :dir .
+mkdir -p specs models tests docs
+touch specs/.gitkeep models/.gitkeep tests/.gitkeep docs/.gitkeep
+#+end_src
+
+** Create Makefile for automation
+#+begin_src makefile :tangle Makefile :mkdirp t
+.PHONY: check model test clean
+
+SPECS := $(wildcard specs/*.tla)
+MODELS := $(wildcard specs/*.cfg)
+
+check:
+	@echo "Syntax checking all specs..."
+	@for spec in $(SPECS); do \
+		echo "Checking $$spec..."; \
+		java -jar tla2tools.jar -noGenerateSpecTEAnnotations $$spec; \
+	done
+
+model:
+	@echo "Model checking all specs..."
+	@for cfg in $(MODELS); do \
+		spec=$${cfg%.cfg}.tla; \
+		echo "Checking $$spec with $$cfg..."; \
+		java -jar tla2tools.jar -config $$cfg $$spec; \
+	done
+
+clean:
+	rm -rf states/ *.out
+
+help:
+	@echo "Available commands:"
+	@echo "  make check  - Syntax check all TLA+ specs"
+	@echo "  make model  - Model check all specs"
+	@echo "  make clean  - Clean generated files"
+#+end_src
+
+* AI Prompts Library
+
+** Fix syntax errors
+#+begin_example
+Fix the syntax errors in this TLA+ spec. Use proper TLA+ syntax:
+- Use == for definitions, not =
+- Use # for not-equal, not !=
+- Use \in for set membership
+- Ensure proper module structure
+#+end_example
+
+** Add UNCHANGED clauses
+#+begin_example
+Add UNCHANGED <<>> clauses to each action for variables not modified.
+Only include variables that exist in the vars definition.
+#+end_example
+
+** Analyze error trace
+#+begin_example
+Analyze this TLA+ error trace and explain:
+1. What sequence of events led to the violation
+2. Why the invariant/property was violated  
+3. Potential fixes to prevent this issue
+#+end_example
+
+** Convert Python to TLA+
+#+begin_example
+Convert this Python code to a TLA+ specification:
+- Model sequential operations as pc states
+- Abstract away implementation details like sleep()
+- Focus on the concurrent behavior and shared state
+- Add appropriate invariants and temporal properties
+#+end_example
+
+** Generate test scenarios
+#+begin_example
+Based on this TLA+ spec, generate Python test cases that:
+- Exercise the main paths through the specification
+- Test boundary conditions (empty queue, full queue, etc.)
+- Verify the invariants hold in the implementation
+#+end_example
+#+end_src
+
+* Tips for Using AI with TLA+
+
+Based on the article's findings:
+
+1. **Syntax Fixing**: Let AI handle syntax errors - it's much better than SANY's cryptic messages
+2. **Error Traces**: Copy error traces and ask for high-level explanations
+3. **Boilerplate**: Use AI for UNCHANGED clauses, variable collections, and routine updates
+4. **Properties**: Be very precise when asking AI to formalize properties
+5. **Limitations**: Don't rely on AI for fixing logical bugs or generating non-trivial properties
+
+The key is to use AI as a "force multiplier" for the tedious parts while keeping human insight for the design and abstraction decisions.
